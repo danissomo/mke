@@ -84,9 +84,9 @@ class Geom:
                 return result
 
 
-    def split(self, i = 0, not_splited = True):
+    def make_convex_shape(self):#придумать структуру хранения отрезанных элементов
         bf = self.head
-        while not_splited:
+        while True:
             loc = bf.nextBorder.locate_brdrs(bf.prev.nextBorder, bf.next.nextBorder)
             if not loc:
                 g = [{"cords" : bf.prev.prev.point.cords, "brdr_type_next": bf.prev.prevBorder.type},
@@ -94,7 +94,7 @@ class Geom:
                     {"cords" : bf.point.cords, "brdr_type_next": bf.nextBorder.type}, 
                     {"cords" : bf.next.point.cords, "brdr_type_next": BrdrType.NON}]
                 newgeom = Geom(g, 0)
-                newgeom.split(i, False)
+                newgeom.split(0, False)
                 #newgeom.show()
                 self.head.del_elem(bf.prev)
                 self.head.del_elem(bf)
@@ -105,39 +105,25 @@ class Geom:
             if bf == self.head:
                 break
 
+
+    def split(self, i = 0, not_convex = True):
+        if not_convex:
+            self.make_convex_shape()
+
         bf = self.head
         new_points = []
+        sum = np.array([0.0]*2)
         while True:
             new_points.append(bf.split())
+            sum += new_points[-1].point.cords
             bf = bf.next.next
             if bf is self.head:
-                break
-        sum = np.array([0.0]*len(new_points[0].point.cords))
-        ln = 0
-        c_cross = []
-        for point in new_points:
-            c1 = Circle()
-            c1.from_triangle(point.prev.point, point.prev.prev.point, point.point)
-            c2 = Circle()
-            c2.from_triangle(point.next.point, point.next.next.point, point.point,)
-            newp = self._circle_cross(c1, c2)
-            dl  = math.sqrt((point.point.cords - newp[0].cords)[0] *(point.point.cords - newp[0].cords)[0]  +  (point.point.cords - newp[0].cords)[1] *(point.point.cords - newp[0].cords)[1] )
-            if dl < math.pow(0.00000001, i):
-                newp  = newp[1]
-            else:
-                newp = newp[0]
+                break              
 
-            sum += newp.cords
-            c_cross.append(newp)          
-            
-        sum/=len(c_cross)
-        #print(len(c_cross))
-        # for p in c_cross:
-        #     print(p.cords)
+        sum/=len(new_points)
         newp = Point(sum)
-        k=0
-        while k < len(new_points):
-            point = new_points[k]
+
+        for point in new_points:
             g = [{"cords" : point.prev.point.cords, "brdr_type_next": point.prev.nextBorder.type}, 
                  {"cords" : point.point.cords, "brdr_type_next": BrdrType.NON}, 
                  {"cords" : newp.cords, "brdr_type_next": BrdrType.NON},
@@ -148,7 +134,6 @@ class Geom:
                 newgeom.split(i+1, False)
             newgeom.show(pltshow=False)
             self.geom_in.append(newgeom)
-            k+=1
         
     
     def _cross(self, line:Line):
