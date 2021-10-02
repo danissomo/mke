@@ -14,15 +14,17 @@ from primitives import *
 class Geom:
     def __init__(self, g, k_mater):
         self.head =Ring()
-        self.head.init_geom(Point(g[-1]["cords"]), g[-1]["brdr_type_next"], 
+        self.head.init_geom(Point(g[-1]["cords"]), g[-1]["brdr_type_next"],
                             Point(g[ 0]["cords"]), g[ 0]["brdr_type_next"], Point(g[1]["cords"]))
         bf = self.head
         for i in range(1, len(g)):
             bf.def_next_geom(Point(g[i]["cords"]), g[i-1]["brdr_type_next"])
             bf = bf.next
         self.head.close()
-        self.points = [p["cords"] for p in g] 
+        self.points = [p["cords"] for p in g]
         self.geom_in = []
+        self.is_convex = False
+        self.size = len(g)
     def __str__(self) -> str:
         res = ""
         bf = self.head
@@ -41,7 +43,7 @@ class Geom:
             bf = bf.next
             if bf is self.head:
                 break
-    
+
 
     def _circle_cross(self, ci1:Circle, ci2:Circle):
         v = ci1.c.cords - ci2.c.cords
@@ -49,7 +51,7 @@ class Geom:
         a = (ci2.r*ci2.r - ci1.r*ci1.r + d*d)/(2*d)
         # if ci2.r*ci2.r - a*a < 0:
         #     return None
-        h = math.sqrt(ci2.r*ci2.r - a*a) 
+        h = math.sqrt(ci2.r*ci2.r - a*a)
         p2 = ci2.c.cords + v*a/d
         p3_plus = p2 + np.array([h*v[1]/d, -h*v[0]/d])
         p3_minus = p2 - np.array([h*v[1]/d, -h*v[0]/d])
@@ -73,7 +75,7 @@ class Geom:
         if pltshow:
             plt.show()
 
-    
+
     def _precalc_split(self):
         result = []
         bf = self.head
@@ -86,29 +88,26 @@ class Geom:
 
     def make_convex_shape(self):#придумать структуру хранения отрезанных элементов
         bf = self.head
-        while True:
+        while not self.is_convex:
             loc = bf.nextBorder.locate_brdrs(bf.prev.nextBorder, bf.next.nextBorder)
             if not loc:
-                g = [{"cords" : bf.prev.prev.point.cords, "brdr_type_next": bf.prev.prevBorder.type},
-                    {"cords" : bf.prev.point.cords, "brdr_type_next": bf.prevBorder.type}, 
-                    {"cords" : bf.point.cords, "brdr_type_next": bf.nextBorder.type}, 
+                g = [{"cords" : bf.prev.point.cords, "brdr_type_next": bf.prevBorder.type},
+                    {"cords" : bf.point.cords, "brdr_type_next": bf.nextBorder.type},
                     {"cords" : bf.next.point.cords, "brdr_type_next": BrdrType.NON}]
                 newgeom = Geom(g, 0)
-                newgeom.split(0, False)
-                #newgeom.show()
-                self.head.del_elem(bf.prev)
+                newgeom.split(0)
                 self.head.del_elem(bf)
                 bf = self.head
                 continue
             
             bf= bf.next
             if bf == self.head:
+                self.is_convex = True
                 break
 
 
-    def split(self, i = 0, not_convex = True):
-        if not_convex:
-            self.make_convex_shape()
+    def split(self, i = 0, rec_deep = 2):
+        self.make_convex_shape()
 
         bf = self.head
         new_points = []
@@ -118,24 +117,24 @@ class Geom:
             sum += new_points[-1].point.cords
             bf = bf.next.next
             if bf is self.head:
-                break              
+                break
 
         sum/=len(new_points)
         newp = Point(sum)
 
         for point in new_points:
-            g = [{"cords" : point.prev.point.cords, "brdr_type_next": point.prev.nextBorder.type}, 
-                 {"cords" : point.point.cords, "brdr_type_next": BrdrType.NON}, 
+            g = [{"cords" : point.prev.point.cords, "brdr_type_next": point.prev.nextBorder.type},
+                 {"cords" : point.point.cords, "brdr_type_next": BrdrType.NON},
                  {"cords" : newp.cords, "brdr_type_next": BrdrType.NON},
                  {"cords" : point.prev.prev.point.cords, "brdr_type_next": point.prev.prev.nextBorder.type}]
             newgeom = Geom(g, 0)
-            recurce_c = 1
-            if i < recurce_c: 
-                newgeom.split(i+1, False)
+
+            if i < rec_deep:
+                newgeom.split(i+1)
             newgeom.show(pltshow=False)
             self.geom_in.append(newgeom)
-        
-    
+
+
     def _cross(self, line:Line):
         bf = self.head
         res = []
@@ -147,7 +146,7 @@ class Geom:
             if bf == self.head:
                 break
         return res
-    
+
 
 
 class Ring:
@@ -166,7 +165,7 @@ class Ring:
             self.prevBorder = prev_ring.nextBorder
             self.nextBorder = None
             self.closed = False
-        
+
     def close(self):
         bf = self
         while bf.next != None:
@@ -183,12 +182,12 @@ class Ring:
         self.point = point
         self.prevBorder = Border(p1, point, type1)
         self.nextBorder = Border(p2, point,type2)
-    
+
 
     def def_next_geom(self, p1:Point, type):
         self.nextBorder = Border(p1, self.point, type)
         self.next = Ring(self)
-        
+
 
 
     def split(self,):
@@ -201,7 +200,7 @@ class Ring:
         bf.prev = self.next
         bf.prevBorder = self.next.next.nextBorder
         return bf.prev
-    
+
 
     def del_elem(self, elem):
         bf = self
@@ -214,14 +213,13 @@ class Ring:
         bf.next.prev = bf.prev
         bf.next.prevBorder = bf.prev.nextBorder
 
-    
+
     def __str__(self) -> str:
         return "{prev Border %%\nnext Border%%\n point %%}".format(self.prevBorder, self.nextBorder, self.point)
-    
 
 
 
 
 
 
-            
+
