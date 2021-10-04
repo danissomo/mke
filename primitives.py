@@ -7,9 +7,9 @@ from enum import Enum
 
 class BrdrType(Enum):
     NON = 0
-    GAS = 1
-    LIQ = 2
-    INS = 3
+    INS = 1
+    CON = 2
+    INP = 3
 
 
 class Point:
@@ -124,7 +124,13 @@ class Line:
         
         return (y1 > p1.cords[1] and y2 > p2.cords[1]) or (y1 < p1.cords[1] and y2 < p2.cords[1]) 
             
-
+    def locate_points(self, p1:Point, p2:Point):
+        y1 = self.y_from_x(p1.cords[0])
+        y2 = self.y_from_x(p2.cords[0])
+        if y1 == None or y2 == None:
+            return (p1.cords[0] > self.p1.cords[0] and p2.cords[0] > self.p1.cords[0]) or (p1.cords[0] < self.p1.cords[0] and p2.cords[0] < self.p1.cords[0])
+        
+        return (y1 > p1.cords[1] and y2 > p2.cords[1]) or (y1 < p1.cords[1] and y2 < p2.cords[1]) 
 
 
 
