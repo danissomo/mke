@@ -1,29 +1,26 @@
-
 import math
-from operator import le
-from os import pread
-
-import matplotlib
-from matplotlib.lines import Line2D
 import numpy as np
-from enum import Enum
 import matplotlib.pyplot as plt
 import numpy.linalg as linalg
-from numpy.lib.function_base import copy, select
+import colorsys as colors
+
 from primitives import *
 
 class Mesh:
     def __init__(self) -> None:
         self.mesh ={}
+        self.temps = None
+        self.help_dict = {}
         pass
     
-    def add_rel(self, key,  value):
 
+    def add_rel(self, key,  value):
         if not key in self.mesh:
             self.mesh[key] = {value}
             return
         self.mesh[key].add(value)
     
+
     def show(self):
         plt.axes()
         items = self.mesh.items()
@@ -32,7 +29,7 @@ class Mesh:
                 line  = plt.Line2D((value[0][0], pair[0][0]),
                                 (value[0][1], pair[0][1]) ,
                                 lw =2,color='r', markersize=5, marker='.', markerfacecolor=(0.1, 0.2, 0.5), markeredgewidth= 0)
-                #plt.gca().add_line(line)
+                plt.gca().add_line(line)
          
         for point_cords in self.mesh.keys():
             t_point = self.temps[self.help_dict[point_cords]]
@@ -42,31 +39,28 @@ class Mesh:
         plt.axis('scaled')
         plt.show()
     
-
-    def _dict_to_np(self, keys,  arr):
-        help_dict = {}
+    def _gen_help_dict(self, keys):
+        self.help_dict = {}
         for i, key in zip(range(len(keys)), keys):
-            help_dict[key] = i
-        result = np.array([[0.0]*len(keys)]* len(keys))
+            self.help_dict[key] = i
+
+    def _dict_to_np(self,  arr):
+        result = np.array([[0.0]*len(self.help_dict)]* len(self.help_dict))
         for row in arr.items():
             r_i = row[1].items()
-            
             for val in r_i:
-                result[help_dict[row[0]]][help_dict[val[0]]] = val[1]
+                result[self.help_dict[row[0]]][self.help_dict[val[0]]] = val[1]
         return result
 
-    def _dict_vec_to_np(self, keys, vec):
-        help_dict = {}
-        for i, key in zip(range(len(keys)), keys):
-            help_dict[key] = i
-        result = np.array([0.0]*len(keys))
+    def _dict_vec_to_np(self, vec):
+        result = np.array([0.0]*len(self.help_dict))
         for pair in vec.items():
-            result[help_dict[pair[0]]] = pair[1]
-        self.help_dict = help_dict
+            result[self.help_dict[pair[0]]] = pair[1]
         return result
 
 
-    def calc(self, alpha, temp, q, lambd):
+    def calc_temps(self, alpha, temp, q, lambd):
+        self._gen_help_dict(self.mesh.keys())
         items = self.mesh.items()
         row = {}
         k_matr = {}
@@ -86,9 +80,9 @@ class Mesh:
             values = pair_row[1]
             for contact_point in values:
                 if contact_point[i_btype] == BrdrType.CON:
-                    vec[for_point] += alpha*100*self.len_pp(for_point, contact_point[i_point])*temp
+                    vec[for_point] += alpha*self.len_pp(for_point, contact_point[i_point])*temp
                 elif contact_point[i_btype] == BrdrType.INP:
-                    vec[for_point] += q*100*self.len_pp(for_point, contact_point[i_point])
+                    vec[for_point] += q*self.len_pp(for_point, contact_point[i_point])
                 
 
         for pair_row in items:
@@ -96,35 +90,25 @@ class Mesh:
             values = pair_row[1]
             for contact_point in values:
                 if contact_point[i_btype] == BrdrType.CON:
-                    k_matr[for_point][for_point] +=alpha*100*self.len_pp(for_point, contact_point[i_point])
-                    k_matr[contact_point[i_point]][contact_point[i_point]] += alpha*100*self.len_pp(for_point, contact_point[i_point])
+                    a = alpha*self.len_pp(for_point, contact_point[i_point])/2
+                    k_matr[for_point][for_point] +=a
+                    k_matr[contact_point[i_point]][contact_point[i_point]] += a                   
+                    
                 
-                cur_lambd = lambd/(100 * self.len_pp(for_point, contact_point[i_point]))
+                cur_lambd = lambd/(self.len_pp(for_point, contact_point[i_point]))
+                cur_lambd/=2
                 k_matr[for_point][for_point] += cur_lambd
                 k_matr[contact_point[i_point]][contact_point[i_point]] += cur_lambd
                 k_matr[for_point][contact_point[i_point]] -= cur_lambd
                 k_matr[contact_point[i_point]][for_point] -= cur_lambd
                 
         
-        file = open("m_before.txt", "w")
-        for row in k_matr.items():
-            row_items = row[1].items()
-            for val in row_items:
-                file.write(val[1].__str__()+",")
-            file.write("\n")
         
-        k_matr = self._dict_to_np(self.mesh.keys(),k_matr)
-        vec= self._dict_vec_to_np(self.mesh.keys(), vec)
-        file = open("m.txt", "w")
-        for row in k_matr:
-            for val in row:
-                file.write(val.__str__()+",")
-            file.write("\n")
-        #print(k_matr[0:][0:10])
+        k_matr = self._dict_to_np(k_matr)
+        vec= self._dict_vec_to_np(vec)
         k_matr =  np.array(k_matr)
         m_inv = linalg.inv(k_matr)
         t_answ = np.matmul(m_inv, vec)
-        print(t_answ)
         self.temps = t_answ
         return t_answ
     
@@ -133,6 +117,7 @@ class Mesh:
         a1 = p1[0] - p2[0]
         a2 = p1[1] - p2[1]
         return math.sqrt(a1*a1 + a2*a2)
+
 
 class Geom:
     def __init__(self, g, k_mater, mesh = Mesh()):
@@ -151,6 +136,8 @@ class Geom:
         self.is_convex = False
         self.size = len(g)
         self.end_elem = False
+        self.geom_out = []
+    
     def __str__(self) -> str:
         res = ""
         bf = self.head
@@ -171,35 +158,38 @@ class Geom:
                 break
 
 
-    def _circle_cross(self, ci1:Circle, ci2:Circle):
-        v = ci1.c.cords - ci2.c.cords
-        d = math.sqrt(v[0]*v[0]+ v[1]*v[1])
-        a = (ci2.r*ci2.r - ci1.r*ci1.r + d*d)/(2*d)
-        # if ci2.r*ci2.r - a*a < 0:
-        #     return None
-        h = math.sqrt(ci2.r*ci2.r - a*a)
-        p2 = ci2.c.cords + v*a/d
-        p3_plus = p2 + np.array([h*v[1]/d, -h*v[0]/d])
-        p3_minus = p2 - np.array([h*v[1]/d, -h*v[0]/d])
-        return [Point(p3_plus), Point(p3_minus)]
-
-
     def show(self, pltshow= True):
-        bf = self.head
         if pltshow:
             plt.axes()
-        while True:
-            line  = plt.Line2D((bf.point.cords[0], bf.next.point.cords[0]),
-                               (bf.point.cords[1], bf.next.point.cords[1]) ,
-                               lw =2,color='r', markersize=5, marker='.', markerfacecolor='cyan', markeredgewidth= 0)
-            plt.gca().add_line(line)
-            bf = bf.next
-            if bf is self.head:
-                break
 
-        #plt.gca().add_line(plt.Polygon(self.points))
-        plt.axis('scaled')
+        bf = self.head
+        if self.end_elem:
+            polygon_points = []  
+            sum = 0
+            while True:
+                if self.mesh.temps is None:
+                    line  = plt.Line2D((bf.point.cords[0], bf.next.point.cords[0]),
+                                    (bf.point.cords[1], bf.next.point.cords[1]) ,
+                                    lw =2,color='r', markersize=5, marker='.', markerfacecolor='cyan', markeredgewidth= 0)
+                    plt.gca().add_line(line)
+                polygon_points.append(tuple(bf.point.cords))
+                sum += self.mesh.temps[self.mesh.help_dict[tuple(bf.point.cords)]]
+                bf = bf.next
+                if bf is self.head:
+                    break
+            max_t = max(self.mesh.temps)
+            min_t = min(self.mesh.temps)
+            hue = 0.7* (max_t- sum/4.0)/(max_t-min_t)
+            pol = plt.Polygon(polygon_points, color = colors.hsv_to_rgb(hue, 1, 1))
+            plt.gca().add_patch(pol )
+        else:
+            for geom in self.geom_out:
+                geom.show(pltshow = False)
+            for geom in self.geom_in:
+                geom.show(pltshow = False)
+        
         if pltshow:
+            plt.axis('scaled')
             plt.show()
 
 
@@ -213,7 +203,7 @@ class Geom:
                 return result
 
 
-    def make_convex_shape(self, rec_deep):#придумать структуру хранения отрезанных элементов
+    def make_convex_shape(self, rec_deep):
         bf = self.head
         while not self.is_convex:
             loc = bf.nextBorder.locate_brdrs(bf.prev.nextBorder, bf.next.nextBorder)
@@ -222,29 +212,25 @@ class Geom:
                 back_roller = bf.next
                 while True:
                     g.append({"cords" : back_roller.point.cords, "brdr_type_next": back_roller.prevBorder.type})
-                    #print(back_roller.point)
                     back_roller = back_roller.prev
                     if not bf.nextBorder.locate_points(bf.prev.point, back_roller.point) and back_roller != bf and back_roller !=bf.next:
                         break
                 back_roller = back_roller.next.next
-                #print("end back")
                 while True:
                     if back_roller == self.head:
                         self.head = self.head.prev
                         
                     self.head.del_elem(back_roller)
-                    #print(back_roller.point)
                     if back_roller == bf:
                         self.head.del_elem(back_roller)
                         break
                     back_roller=back_roller.next
                 
                 g[-1]["brdr_type_next"] = BrdrType.NON
-                #print("--")
                 newgeom = Geom(g, 0, self.mesh)
                 newgeom.is_convex = True
                 newgeom.split(0, rec_deep)
-                #self.head.del_elem(bf)
+                self.geom_out.append(newgeom)
                 bf = self.head
                 continue
                 
@@ -282,7 +268,6 @@ class Geom:
             else: 
                 newgeom.end_elem = True
                 newgeom.add_to_mesh()
-            #newgeom.show(pltshow=False)
             self.geom_in.append(newgeom)
 
 
@@ -307,7 +292,6 @@ class Geom:
             if bf == self.head:
                 break
         pass
-
 
 
 class Ring:

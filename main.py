@@ -1,18 +1,20 @@
 from geometry import *
 
+def example(A, B, a, b):
+     g = [{"cords" : [0,0.0], "brdr_type_next": BrdrType.CON}, 
+         {"cords" : [A,0.0], "brdr_type_next": BrdrType.INS}, 
+         {"cords" : [A,B], "brdr_type_next": BrdrType.INP}, 
+         {"cords" : [A- (A-a)/2,B], "brdr_type_next": BrdrType.CON},
+         {"cords" : [A- (A-a)/2,B-b], "brdr_type_next": BrdrType.CON},
+         {"cords" : [(A-a)/2,B-b], "brdr_type_next": BrdrType.CON},
+         {"cords" : [(A-a)/2,B], "brdr_type_next": BrdrType.INP},
+         {"cords" : [0,B], "brdr_type_next": BrdrType.INP}]
+     return g
+
 if __name__ == "__main__":
-    g = [{"cords" : [0,0.0], "brdr_type_next": BrdrType.CON}, 
-         {"cords" : [0.5,0.0], "brdr_type_next": BrdrType.INS}, 
-         {"cords" : [0.5,0.5], "brdr_type_next": BrdrType.INP}, 
-         {"cords" : [0.3,0.5], "brdr_type_next": BrdrType.CON},
-         {"cords" : [0.3,0.3], "brdr_type_next": BrdrType.CON},
-         {"cords" : [0.2,0.3], "brdr_type_next": BrdrType.CON},
-         {"cords" : [0.2,0.5], "brdr_type_next": BrdrType.INP},
-         {"cords" : [0,0.5], "brdr_type_next": BrdrType.INP}]
-    m = Mesh()
-    geom = Geom(g,0,m)
-    geom.split(rec_deep=2)
-    #print(geom)
-    #geom.show()
-    m.calc(10, 50, 150, 70)
-    m.show()
+     g = example(15, 10, 5, 4)
+     m = Mesh()
+     geom = Geom(g,0,m)
+     geom.split(rec_deep=4)
+     m.calc_temps(10,22, 150, 75)
+     geom.show()

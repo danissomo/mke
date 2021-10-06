@@ -44,10 +44,8 @@ class Line:
 
 
     def _cross(self, line):
-        #print(line.v)
         if (self.v/line.v)[0] - (self.v/line.v)[1] < 0.0001:
             return False 
-        #line = Line(line)
         if line.v[0] != 0 and self.v[0] != 0:
             k = np.array([line.p2.cords[0], self.p2.cords[0]]) - np.array([line.p2.cords[1]*line.v[1]/line.v[0], self.p2.cords[1]*self.v[1]/self.v[0]]) 
         elif line.v[0] == 0 and self.v[0]!=0: 
@@ -62,9 +60,7 @@ class Line:
             inv_m = linalg.inv(m)
         except:
             return False
-        # print(k)
-        # k = np.reshape(k, ((1),(1)))
-        # print(k)
+
         result  = np.matmul(inv_m, k)
         if  math.isnan(result[0]) or math.isnan(result[1]):
             return False
@@ -80,7 +76,6 @@ class Line:
         
         if math.isinf(t1) or math.isnan(t1) or math.isinf(t2) or math.isnan(t2):
             return False
-        #print(t1, t2, result)
         return t1 < 1 and t2 < 1 and t1 >0  and t2 > 0
 
 
